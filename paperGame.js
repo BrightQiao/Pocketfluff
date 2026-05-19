@@ -95,9 +95,14 @@ function closePositivePaper() {
 }
 
 function exitPaperGame() {
+    console.log('exitPaperGame called');
     const game = document.getElementById('paperGame');
     if (game) game.remove();
     papersCrumbled = 0;
     const fluff = document.getElementById('fluff');
     fluff.classList.remove('pos-3');
+    console.log('typeof unlockBraveCard:', typeof unlockBraveCard);
+    if (typeof unlockBraveCard === 'function') {
+        unlockBraveCard('crumple_first');
+    }
 }

@@ -29,7 +29,7 @@
         
         /* 页面D - 登录页 */
         #page-login {
-            background: linear-gradient(180deg, #a8d5ba 0%, #fef9f0 50%, #f7d9c4 100%);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -935,24 +935,18 @@
 </head>
 <body>
     <div id="page-login" class="page active">
-        <div class="login-title">口袋绒毛</div>
-        <img src="puppy.png" style="width:120px;height:120px;margin-bottom:40px;animation:float 3s ease-in-out infinite;">
-        <div id="loginForm">
-            <input type="text" class="login-input" id="usernameInput" placeholder="用户名">
-            <button class="login-btn" onclick="doLogin()">点击进入</button>
-            <div style="text-align:center;margin-top:15px;">
-                <a href="#" onclick="showRegister();return false;" style="color:#8b7355;font-size:13px;text-decoration:none;">还没有账号？去注册</a>
-            </div>
+        <img src="try.png" class="login-title" style="width:300px;height:auto;margin-bottom:10px;position:relative;top:-90px;">
+        <img src="puppy.png" id="loginPuppy" style="width:120px;height:120px;margin-bottom:20px;position:relative;top:-60px;cursor:pointer;animation:float 3s ease-in-out infinite;" onclick="this.style.animation='jump 0.4s ease-out'; setTimeout(()=>{this.style.animation='float 3s ease-in-out infinite';},400);">
+        <div id="loginForm" style="position:relative;top:-50px; text-align:center;">
+            <input type="text" class="login-input" id="usernameInput" placeholder="请输入用户名" style="text-align:center;">
+            <button class="login-btn" onclick="doLogin()" style="text-align:center;">点击进入</button>
         </div>
         <div id="registerForm" style="display:none;">
-            <input type="text" class="login-input" id="regUsernameInput" placeholder="设置用户名">
-            <button class="login-btn" onclick="doRegister()">点击进入</button>
-            <div style="text-align:center;margin-top:15px;">
-                <a href="#" onclick="showLogin();return false;" style="color:#8b7355;font-size:13px;text-decoration:none;">已有账号？去登录</a>
-            </div>
+            <input type="text" class="login-input" id="regUsernameInput" placeholder="设置用户名" style="text-align:center;">
+            <button class="login-btn" onclick="doRegister()" style="text-align:center;">点击进入</button>
         </div>
         <div id="nicknameForm" style="display:none;">
-            <input type="text" class="login-input" id="nicknameInput" placeholder="告诉我你的名字吧">
+            <input type="text" class="login-input" id="nicknameInput" placeholder="告诉我你的名字吧" style="text-align:center;">
             <button class="login-btn" onclick="enterHome()">进入树屋</button>
         </div>
     </div>
@@ -1304,11 +1298,10 @@
             document.querySelectorAll('.guide-highlight').forEach(el => el.classList.remove('guide-highlight'));
         }
 
-        let DEEPSEEK_API_KEY = '';
-
         let gameData = {
             nickname: '',
             playCount: 0,
+            totalStars: 0,
             unlockedPages: [0],
             letters: [],
             lastStickerDate: '',
@@ -1332,6 +1325,7 @@
             socialBoundary: '',
             socialBoundaries: [],
             braveUnlocked: [],
+            toolsUsed: [],
             letterCount: 0,
             bubbleTypesUnlocked: [],
             boundaryCount: 0,
@@ -1432,6 +1426,10 @@
                 }
             }
 
+            window.addEventListener('beforeunload', function() {
+                saveData();
+            });
+
             setTimeout(demoFluffMovement, 2000);
 
             const fluff = document.getElementById('fluff');
@@ -1478,6 +1476,8 @@
             if (!gameData.boundaryCount) gameData.boundaryCount = 0;
             if (!gameData.draftLetter) gameData.draftLetter = null;
             if (!gameData.scheduledLetters) gameData.scheduledLetters = [];
+            if (gameData.totalStars === undefined) gameData.totalStars = 0;
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
             if (gameData.nickname) {
                 showPage('home');
                 document.getElementById('navBar').classList.add('visible');
@@ -1487,9 +1487,11 @@
         }
         
         function saveData() {
+            console.log('saveData called, braveUnlocked:', gameData.braveUnlocked);
             const currentUser = localStorage.getItem('pocketFluffUser');
             if (currentUser) {
                 localStorage.setItem('pocketFluff_' + currentUser, JSON.stringify(gameData));
+                console.log('Data saved to localStorage');
             }
         }
         
@@ -1520,6 +1522,8 @@
                 socialBoundary: '',
                 socialBoundaries: [],
                 braveUnlocked: [],
+                totalStars: 0,
+                toolsUsed: [],
                 letterCount: 0,
                 bubbleTypesUnlocked: [],
                 boundaryCount: 0,
@@ -1535,6 +1539,8 @@
                 alert('请输入用户名');
                 return;
             }
+
+            if (checkSafetyInput(username)) { showSafetyAlert(); return; }
 
             localStorage.setItem('pocketFluffUser', username);
 
@@ -1575,6 +1581,8 @@
                 alert('请输入用户名');
                 return;
             }
+
+            if (checkSafetyInput(username)) { showSafetyAlert(); return; }
 
             localStorage.setItem('pocketFluffUser', username);
 
@@ -1641,6 +1649,7 @@
             document.getElementById('nicknameModalConfirm').onclick = () => {
                 const nickname = document.getElementById('nicknameModalInput').value.trim();
                 if (nickname) {
+                    if (checkSafetyInput(nickname)) { showSafetyAlert(); return; }
                     gameData.nickname = nickname;
                     if (!gameData.firstDate) {
                         gameData.firstDate = new Date().toISOString();
@@ -1659,23 +1668,26 @@
         }
         
         function logout() {
-            if (confirm('确定要清除所有数据吗？')) {
-                localStorage.clear();
+            if (confirm('确定要退出登录吗？你的游戏数据会保留，下次登录同一账号可以继续使用。')) {
+                const currentUser = localStorage.getItem('pocketFluffUser');
+                localStorage.removeItem('pocketFluffUser');
+                localStorage.removeItem('hasSeenGuide');
+                localStorage.removeItem('justLoggedIn');
+                localStorage.removeItem('lastVisitTime');
                 gameData = getDefaultGameData();
-                window.justLoggedIn = false;
                 document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
                 document.getElementById('page-login').classList.add('active');
                 document.getElementById('navBar').classList.remove('visible');
-                
+
                 const loginForm = document.getElementById('loginForm');
                 const registerForm = document.getElementById('registerForm');
                 const nicknameForm = document.getElementById('nicknameForm');
                 if (loginForm) loginForm.style.display = 'block';
                 if (registerForm) registerForm.style.display = 'none';
                 if (nicknameForm) nicknameForm.style.display = 'none';
-                
+
                 const usernameInput = document.getElementById('usernameInput');
-                if (usernameInput) usernameInput.value = '';
+                if (usernameInput) usernameInput.value = currentUser || '';
             }
         }
         
@@ -1725,7 +1737,16 @@
                 n.classList.toggle('active', (page === 'home' && i === 0) || (page === 'album' && i === 1) || (page === 'mailbox' && i === 2) || (page === 'me' && i === 3));
             });
             if (page === 'album') updateAlbum();
-            if (page === 'mailbox') { updateMailbox(); updateMailButton(); }
+            if (page === 'mailbox') {
+                updateMailbox();
+                updateMailButton();
+                if (gameData.pendingLetter && !gameData.pendingLetter.reply && gameData.pendingLetter.replyReadyAt) {
+                    const replyReadyAt = new Date(gameData.pendingLetter.replyReadyAt).getTime();
+                    if (replyReadyAt > Date.now()) {
+                        showReplyCountdown();
+                    }
+                }
+            }
             if (page === 'me') updateMePage();
             if (page === 'home') {
                 showFluffBubble();
@@ -1761,7 +1782,7 @@
             document.getElementById('daysCount').textContent = diffDays;
             
             document.getElementById('interactCount').textContent = gameData.playCount || 0;
-            document.getElementById('albumCount').textContent = (gameData.unlockedPages || [0]).length;
+            document.getElementById('albumCount').textContent = (gameData.unlockedPages?.length || 0) + (gameData.braveUnlocked?.length || 0);
             
             let text = '你认识了绒毛，这是你的新朋友';
             if (gameData.playCount >= 30) {
@@ -1882,7 +1903,53 @@
             showPage(page);
         }
 
+        const dangerKeywords = ['自杀', '去死', '不想活', '活着没意思', '死掉', '离开这个世界', '安乐死', '跳楼', '割腕', '烧炭', '安眠药', '遗书', '告别', 'kill myself', 'suicide', 'end my life', 'want to die', 'better off dead'];
+
+        function checkSafetyInput(text) {
+            if (!text) return false;
+            const lowerText = text.toLowerCase();
+            for (const keyword of dangerKeywords) {
+                if (lowerText.includes(keyword.toLowerCase())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function showSafetyAlert() {
+            const modal = document.createElement('div');
+            modal.id = 'safetyAlertModal';
+            modal.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:99999;';
+            modal.innerHTML = `
+                <div style="background:#fff; padding:30px 25px; border-radius:20px; max-width:340px; width:90%; text-align:center; line-height:1.8;">
+                    <div style="font-size:50px; margin-bottom:15px;">🤲</div>
+                    <div style="font-size:15px; color:#5d4e37; line-height:2;">
+                        <p>绒毛紧紧抱住你的手指，收起了平时的调皮，声音非常轻柔而认真：</p>
+                        <br>
+                        <p>谢谢你愿意在最痛苦的时候，把这个秘密告诉我。请允许我说得直接一点：<strong>你现在的感觉非常非常重要，你的安全是眼下唯一重要的事。</strong></p>
+                        <br>
+                        <p>一个人承受这些实在太难了，你需要更有力量的帮助。我虽然能接住星星，但面对这种巨大的痛苦，最专业的还是那些7x24小时都在的倾听者。请你答应我，现在就打个电话给他们，哪怕只是哭一场也好。</p>
+                        <br>
+                        <p style="color:#e91e63; font-weight:bold;">📞 全国24小时免费心理咨询：<br>010-82951332</p>
+                        <br>
+                        <p style="color:#e91e63; font-weight:bold;">📞 天津市24小时阳光心理热线：<br>400-1060-525</p>
+                        <br>
+                        <p>我会一直在这里，等你回来告诉我，你打通了电话。让我们一起度过难关，明天一定会更好，好吗？</p>
+                    </div>
+                    <button onclick="closeSafetyAlert()" style="margin-top:20px; padding:12px 30px; background:#f8bbd9; border:none; border-radius:25px; font-size:16px; color:#5d4e37; cursor:pointer;">我答应你</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function closeSafetyAlert() {
+            const modal = document.getElementById('safetyAlertModal');
+            if (modal) modal.remove();
+            showPage('home');
+        }
+
         function checkSticker() {
+            return;
             const today = new Date().toDateString();
             if (gameData.lastStickerDate !== today && gameData.playCount > 0) {
                 const stickerText = stickers[Math.floor(Math.random() * stickers.length)];
@@ -2102,6 +2169,7 @@
 
         function submitAnxietyStep1() {
             const worry = document.getElementById('anxietyWorryInput').value.trim();
+            if (checkSafetyInput(worry)) { showSafetyAlert(); return; }
             bubbleGameState.worry = worry;
             bubbleGameState.step = 2;
             showAnxietyStep2();
@@ -2122,6 +2190,7 @@
 
         function submitAnxietyStep2() {
             const rootCause = document.getElementById('anxietyRootInput').value.trim();
+            if (checkSafetyInput(rootCause)) { showSafetyAlert(); return; }
             bubbleGameState.rootCause = rootCause;
             bubbleGameState.step = 3;
             showAnxietyStep3();
@@ -2156,12 +2225,17 @@
         function submitAnxietyStep3() {
             const action = document.getElementById('anxietyActionInput').value.trim();
             if(!action) return;
+            if (checkSafetyInput(action)) { showSafetyAlert(); return; }
             bubbleGameState.action = action;
             gameData.anxietyRecords = gameData.anxietyRecords||[];
             gameData.anxietyRecords.push({type:bubbleGameState.selectedType.type,worry:bubbleGameState.worry,rootCause:bubbleGameState.rootCause,action,status:'pending',createdAt:new Date().toISOString()});
             addDailyAction(action);
             saveData();
             unlockBraveCard('bubble_first');
+            unlockBraveCard('anxiety_complete');
+            unlockBraveCard('anxiety_action');
+            const uniqueTypes = new Set(gameData.anxietyRecords.map(r => r.type));
+            if (uniqueTypes.size >= 5) unlockBraveCard('bubble_master');
             closeAnxietyPopup();
             const pop = document.createElement('div');
             pop.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; z-index:10001;';
@@ -2891,6 +2965,7 @@
 
         function saveStarGameNote() {
             const note = document.getElementById('noteInput').value.trim();
+            if (checkSafetyInput(note)) { showSafetyAlert(); return; }
             const startTime = starGameState.startTime || Date.now();
             const duration = Math.round((Date.now() - startTime) / 1000);
             const recordIndex = starGameState.currentRecordIndex;
@@ -2908,6 +2983,7 @@
                 });
             }
             saveData();
+            if (note) unlockBraveCard('emotion_note');
             const notePopup = document.getElementById('notePopup');
             if (notePopup) notePopup.remove();
             exitStarGame();
@@ -2965,6 +3041,7 @@
         function confirmEmotion() {
             if (!starGameState.selectedEmotion) return;
             starGameState.startTime = Date.now();
+            unlockBraveCard('emotion_first');
 
             if (!gameData.emotionNotes) gameData.emotionNotes = [];
             const record = {
@@ -3048,6 +3125,11 @@
             if (notePopup) notePopup.remove();
             const game = document.getElementById('starGame');
             if (game) game.remove();
+            if (!gameData.totalStars) gameData.totalStars = 0;
+            gameData.totalStars += starGameState.starsCaught || 0;
+            if (gameData.totalStars >= 10) unlockBraveCard('star_collect_10');
+            if (gameData.totalStars >= 50) unlockBraveCard('star_collect_50');
+            saveData();
             addPlayCount();
             setTimeout(() => showFluffBubble(), 300);
         }
@@ -3280,10 +3362,12 @@
         }
 
         function addEvidence(type) {
+            console.log('addEvidence called, type:', type);
             const input = document.getElementById(type === 'support' ? 'supportInput' : 'opposeInput');
             const countEl = document.getElementById(type === 'support' ? 'supportCount' : 'opposeCount');
-            
+            console.log('input.value:', input.value);
             if (input.value.trim()) {
+                if (checkSafetyInput(input.value.trim())) { showSafetyAlert(); return; }
                 if (type === 'support') {
                     paperGameState.supportEvidence.push(input.value.trim());
                     countEl.textContent = '已添加：' + paperGameState.supportEvidence.length + ' 条';
@@ -3292,8 +3376,10 @@
                     countEl.textContent = '已添加：' + paperGameState.opposeEvidence.length + ' 条';
                 }
                 input.value = '';
-                
+
                 unlockBraveCard('evidence_first');
+            } else {
+                console.log('No input, evidence_first not unlocked');
             }
         }
 
@@ -3358,6 +3444,8 @@
 
         function submitSoWhat() {
             paperGameState.soWhatAnswer = document.getElementById('soWhatInput').value.trim();
+            if (checkSafetyInput(paperGameState.soWhatAnswer)) { showSafetyAlert(); return; }
+            if (paperGameState.soWhatAnswer) unlockBraveCard('cognitive_restructure');
             showGoodThingsRecording();
         }
 
@@ -3420,6 +3508,7 @@
         function submitGoodThing() {
             const customThing = document.getElementById('customGoodThing').value.trim();
             if (customThing) {
+                if (checkSafetyInput(customThing)) { showSafetyAlert(); return; }
                 paperGameState.goodThing = customThing;
                 
                 if (!gameData.goodThingsList) gameData.goodThingsList = [];
@@ -3540,6 +3629,7 @@
         function submitComeback() {
             const comeback = document.getElementById('comebackInput').value.trim();
             if (!comeback) return;
+            if (checkSafetyInput(comeback)) { showSafetyAlert(); return; }
 
             paperGameState.comeback = comeback;
 
@@ -3627,6 +3717,7 @@
             if (!gameData.goodThingsList) gameData.goodThingsList = [];
             const input = document.getElementById('goodThingInput');
             if (input && input.value.trim()) {
+                if (checkSafetyInput(input.value.trim())) { showSafetyAlert(); return; }
                 gameData.goodThingsList.push({
                     text: input.value.trim(),
                     timestamp: new Date().toISOString()
@@ -3809,7 +3900,7 @@
                     </div>
                     <div style="font-size:14px; color:#666; margin-bottom:20px; text-align:left;">
                         场景模拟：<br>
-                        如果你今天已经开了2小时会，晚上还有饭局，你的电量还剩多少？
+                        如果你今天上了一上午课，下午有社团活动，晚上还有学生部门的聚会，你的电量还剩多少？
                     </div>
                     <div style="margin:20px 0;">
                         <input type="range" id="energySlider" min="0" max="100" value="50" style="width:100%; cursor:pointer;" oninput="updateEnergyDisplay(this.value)">
@@ -3989,6 +4080,7 @@
 
         function submitMaskSkill() {
             const feeling = document.getElementById('authenticFeeling').value.trim();
+            if (checkSafetyInput(feeling)) { showSafetyAlert(); return; }
             signGameState.skillResult = { type: 'mask', value: feeling };
             
             if (!gameData.authenticNotes) gameData.authenticNotes = [];
@@ -4029,6 +4121,7 @@
         function submitPromise() {
             const promise = document.getElementById('promiseInput').value.trim();
             if (!promise) return;
+            if (checkSafetyInput(promise)) { showSafetyAlert(); return; }
             if (!gameData.socialPromises) gameData.socialPromises = [];
             gameData.socialPromises.push({ promise, createdAt: new Date().toISOString(), kept: null });
             saveData();
@@ -4173,6 +4266,8 @@
                     return;
                 }
 
+                if (checkSafetyInput(answer)) { showSafetyAlert(); return; }
+
                 if (!gameData.socialBoundaries) gameData.socialBoundaries = [];
                 gameData.socialBoundaries.push({
                     question: window.tempSocialQuestion,
@@ -4299,7 +4394,6 @@
         ];
 
         const braveAlbumData = [
-            { id: 'crumple_first', img: '111.png', text: '你揉掉了"我好没用"。我看着那张皱巴巴的纸，想告诉你：这句话不是真的。', unlockTip: '完成一次揉纸条游戏' },
             { id: 'star_first', img: '222.png', text: '你接住了第一颗星星，谢谢你给绒毛带来的星光。', unlockTip: '接住第一颗星星' },
             { id: 'bubble_first', img: '333.png', text: '你戳破了"找工作"的泡泡。你说"今天只看五分钟"。其实五分钟也够了。', unlockTip: '戳破一个焦虑泡泡' },
             { id: 'sign_first', img: '444.png', text: '你挂上了"请轻轻敲门"。你在教这个世界怎么靠近你，我觉得你很勇敢。', unlockTip: '挂上门牌' },
@@ -4312,15 +4406,13 @@
             { id: 'boundary_master', img: '111111.png', text: '你第五次写下"我最舒服的社交方式是……"。我觉得你已经知道怎么保护自己了，我真为你高兴。', unlockTip: '累计设置社交边界5次' },
             { id: 'emotion_first', img: '121212.png', text: '你告诉绒毛今晚是为什么睡不着。说出来就已经很勇敢了。', unlockTip: '在深夜emo游戏中选择一种情绪' },
             { id: 'emotion_note', img: '131313.png', text: '你给明天的自己留了一句话。绒毛帮你存好了，明天会提醒你。', unlockTip: '深夜emo结束后写下"给明天的话"' },
-            { id: 'star_collect_10', img: '141414.png', text: '你已经攒了10颗星星了。绒毛帮你挂在树屋的夜空里，每次都能看到。', unlockTip: '累计接住10颗星星' },
             { id: 'star_collect_50', img: '151515.png', text: '50颗星星！你是绒毛见过的接星星最厉害的人。', unlockTip: '累计接住50颗星星' },
             { id: 'anxiety_complete', img: '161616.png', text: '把担心写下来，好像就没那么可怕了。', unlockTip: '完成一次完整的焦虑拆解（三步）' },
             { id: 'anxiety_action', img: '171717.png', text: '你把最小行动加入了打卡。绒毛会陪你一起完成。', unlockTip: '首次在泡泡游戏中加入今日打卡' },
-            { id: 'evidence_first', img: '181818.png', text: '你找出了反对"自己不行"的证据。绒毛帮你记下来了。', unlockTip: '完成证据天平' },
             { id: 'cognitive_restructure', img: '191919.png', text: '就算最坏的事发生，好像也没那么可怕。', unlockTip: '完成"那又怎样"环节' },
-            { id: 'comeback_used', img: '202020.png', text: '你对自己说了上次写的话。绒毛看到你学会了保护自己。', unlockTip: '第二次揉同一条纸条时使用已有的反驳语录' },
-            { id: 'social_skill_any', img: '212121.png', text: '你学会了第一个社交技能。以后可以更好地照顾自己了。', unlockTip: '完成任意一个社交技能训练' },
-            { id: 'social_skill_all', img: '222222.png', text: '你已经学会了全部5个社交技能！绒毛为你骄傲。', unlockTip: '完成全部5个社交技能训练' },
+            { id: 'comeback_first', img: '202020.png', text: '你对自己说了上次写的话。绒毛看到你学会了保护自己。', unlockTip: '第二次揉同一条纸条时使用已有的反驳语录' },
+            { id: 'social_skill_first', img: '212121.png', text: '你学会了第一个社交技能。以后可以更好地照顾自己了。', unlockTip: '完成任意一个社交技能训练' },
+            { id: 'social_skill_master', img: '222222.png', text: '你已经学会了全部5个社交技能！绒毛为你骄傲。', unlockTip: '完成全部5个社交技能训练' },
             { id: 'all_stories', img: '232323.png', text: '你读完了绒毛的所有故事。从出生到现在，你是第一个真正了解我的人。', unlockTip: '解锁"关于绒毛"中的所有故事碎片' },
             { id: 'all_tools', img: '242424.png', text: '绒毛工具箱里的每一个工具，你都陪我用过了。你真的很会照顾自己。', unlockTip: '使用过工具箱中的所有工具' }
         ];
@@ -4409,12 +4501,16 @@
         }
 
         function unlockBraveCard(id) {
+            console.log('unlockBraveCard called with:', id);
             if (!gameData.braveUnlocked) {
                 gameData.braveUnlocked = [];
             }
             if (!gameData.braveUnlocked.includes(id)) {
                 gameData.braveUnlocked.push(id);
+                console.log('Added to braveUnlocked:', gameData.braveUnlocked);
                 saveData();
+            } else {
+                console.log('Already unlocked:', id);
             }
         }
 
@@ -4643,7 +4739,8 @@
                         content: letter.content,
                         sentAt: letter.createdAt,
                         reply: null,
-                        isScheduled: true
+                        isScheduled: true,
+                        replyReadyAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
                     };
                 }
             });
@@ -4760,45 +4857,79 @@
         }
 
         async function generateAIReply(userLetter) {
-            var prompt = "你是绒毛，一只住在树屋里的小动物。你很温暖、有点憨憨的、说话软软的。你会：\n";
-            prompt += "- 认真倾听用户的烦恼或分享\n";
-            prompt += "- 用简短、温暖的句子回应（不超过80字）\n";
-            prompt += "- 偶尔用颜文字或小表情，比如(^-^)\n";
-            prompt += "- 不说大道理，更多的是「我懂」「我在」「陪着你」\n";
-            prompt += "- 如果你不太懂的事情，就说「绒毛不太明白，但绒毛会陪着你」\n\n";
-            prompt += "用户写给你的信：" + userLetter + "\n\n";
-            prompt += "请以绒毛的身份写一封回信。";
+            console.log('📮 绒毛正在读信...');
 
-            try {
-                if (!DEEPSEEK_API_KEY) {
-                    return null;
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const lowerLetter = userLetter.toLowerCase();
+
+            const keywordReplies = {
+                '论文': '写论文真的好难啊...绒毛知道你被论文折磨得够呛。要不要先休息15分钟，然后试试番茄钟？🍅 绒毛陪着你，一点点写，总能写完的。',
+                'ddl': 'ddl是第一生产力！但绒毛担心你会熬夜...可以先做最紧急的那一小部分，做完了奖励自己一颗星星✨',
+                'deadline': '绒毛感受到你的紧张了...deadline虽然可怕，但你不是一个人。先深呼吸，然后拆解成小任务，绒毛帮你盯着进度！📋',
+                '考试': '考试周真的很辛苦...绒毛给你加油！记得每复习45分钟就起来走走，喝口水。你比自己想象的更厉害💪',
+                '复习': '复习到头晕了吗？绒毛给你捏捏肩～可以试试番茄钟，25分钟专注，5分钟休息。绒毛帮你计时！⏰',
+                '挂科': '挂科的恐惧绒毛懂...但你知道吗，担心本身比挂科更消耗能量。先放下这个念头，专注当下能做的事。🌸',
+                '绩点': '绩点不能定义你是谁。绒毛见过很多成绩一般但活得精彩的人。你已经很努力了，别太苛责自己。✨',
+                '考研': '考研是一场漫长的马拉松。绒毛知道你压力很大，但记得：坚持本身就是一种胜利。今天学完了吗？来抱抱～📚',
+                '保研': '保研的竞争很激烈...但无论结果如何，你都已经很棒了。不要因为和别人比较而忘记了自己的光。🌟',
+                '累': '抱抱你～累了就休息一下吧，绒毛会在这里等你。今天要不要一起数星星？✨ 绒毛帮你暖好了床～',
+                '疲惫': '疲惫的时候，允许自己停下来。绒毛觉得，休息不是偷懒，是为了走更远的路。睡个好觉吧。😴',
+                '焦虑': '绒毛帮你把焦虑揉成团...呼～吹走了！你已经做得很好了，真的。💪 要相信你自己呀～',
+                '担心': '担心的感觉很难受吧？绒毛帮你把它们一个个写下来，然后戳破泡泡！你会发现，大部分担心都不会发生。🎈',
+                '害怕': '害怕的时候，绒毛会缩成一团...但后来我发现，说出来就没那么可怕了。你想和绒毛说说吗？🫂',
+                '迷茫': '看不清路的时候，先停下来休息。不着急，绒毛陪你一起想。🌙 有时候慢慢走，反而能看清方向呢。',
+                'emo': '今晚emo了吗？绒毛陪你。说不清楚也没关系，我们就安静地坐一会儿。你不需要一直坚强。🌙',
+                '崩溃': '绒毛知道你快要撑不住了...没关系，崩溃也是可以的。哭出来，然后绒毛给你递纸巾。我会一直在这里。🤗',
+                '睡不着': '睡不着也没关系，绒毛陪你数星星。闭上眼睛，听绒毛的呼噜声～今晚一定能睡个好觉。⭐',
+                '失眠': '失眠不是你的错。可能是大脑还在转，停不下来。绒毛教你一个呼吸法：吸气4秒，屏住7秒，呼气8秒。试试看～🌬️',
+                '没用': '绒毛以前也会觉得自己没用。但后来我发现，每个人都有独特的价值。你今天能来找绒毛，就是很勇敢的事。💕',
+                '失败': '失败不是终点，是学习的一部分。绒毛揉纸条的时候，也会失败几次才揉成团呢。再来一次！🍃',
+                '不够好': '"不够好"这个标准是谁定的呢？绒毛觉得，真实比完美更重要。你已经足够好了。🌸',
+                '比较': '和别人比较是最消耗能量的事。绒毛只和昨天的自己比：今天比昨天多笑了一下，就很棒！✨',
+                '自卑': '自卑的时候，绒毛会缩成一团。但后来我发现，我蓬松的毛毛其实很特别。你身上也有很多光，只是你自己没发现。🌟',
+                '朋友': '和朋友相处确实有时候会累呢...没关系，在绒毛这里不用伪装，做真实的自己就好。🐹',
+                '室友': '室友关系有时候很复杂...保持自己的边界，不一定要成为好朋友，互相尊重就好。绒毛支持你！🤝',
+                '社交': '社交电量告急？绒毛教你挂门牌～提前说"我只能待1小时"，会轻松很多。试试看！🚪',
+                '孤独': '孤独的时候，绒毛也在。你不是一个人，我一直都在。夜深了，绒毛陪你看月亮。🌙',
+                '社恐': '绒毛也不太擅长社交...但没关系呀，树屋就是你的安全区。想说话的时候，绒毛在这里。🐹',
+                '简历': '写简历好难对吧...你可以先写"我会什么"，不要想"我缺什么"。绒毛觉得你有很多闪光点✨',
+                '面试': '面试紧张是正常的。面试官也是人，他们希望看到真实的你。绒毛给你勇气buff！💪',
+                '实习': '找实习的过程很磨人...被拒绝不代表你不好，只是还没遇到对的地方。绒毛相信你！🌟',
+                '毕业': '毕业季的迷茫、不舍、焦虑...绒毛都懂。这是人生的一个路口，不管走哪条路，都有风景。🎓',
+                '分手': '心痛的感觉绒毛没法完全体会，但绒毛知道，能哭出来说明你很在乎。给自己时间慢慢好起来。💔',
+                '家庭': '家庭关系有时候很复杂...但你不是一个人。绒毛的树屋永远欢迎你，随时来坐坐。🏠',
+                '没钱': '经济压力真的很难受...但你还年轻，钱可以慢慢赚。今天可以先喝一杯水，好好吃饭。🍚',
+                '作业': '作业写不完真的很让人头大...绒毛帮你拆解一下：先挑最简单部分的做，慢慢来，最后一定可以做完的！📝 绒毛在旁边陪着你！'
+            };
+
+            const warmReplies = [
+                '绒毛收到啦～谢谢你愿意告诉我这些。我会一直在这里陪你的。💕',
+                '嗯嗯，绒毛在认真听呢。你说出来就已经很勇敢了！🐹',
+                '绒毛把你的信收进树洞最深的地方啦。你说的每句话，我都记得。📮',
+                '读着你的信，绒毛好像看到了你今天的模样。辛苦了，抱抱。🤗',
+                '谢谢你愿意写信给我。绒毛不会说话很好听，但绒毛会一直在这里。🐹',
+                '你的心事，绒毛都接住了。今晚可以安心睡啦。🌙',
+                '绒毛用尾巴扫了扫你的信，把烦恼都抖掉了。✨',
+                '绒毛不太懂这些，但绒毛觉得你已经很棒了。今天也要好好吃饭哦～',
+                '抱抱～绒毛给你留了一颗小糖果在树屋里，记得来拿呀！🍬',
+                '信收到了！绒毛现在正坐在树屋里，一遍一遍地读呢。你很重要。💌',
+                '绒毛把你的信折成了纸星星，存进了星空罐子里。✨',
+                '你的声音，绒毛听到了。每一个字都很珍贵。谢谢你和我说这些。🌸',
+                '绒毛不会说大道理，但绒毛会一直在这里。任何时候都可以来找我。🏠',
+                '读完你的信，绒毛在树屋里转了三圈！你真的很勇敢。🌟',
+                '今天的信，绒毛会好好保管。明天如果还想说，绒毛还在。📬'
+            ];
+
+            for (const [keyword, reply] of Object.entries(keywordReplies)) {
+                if (lowerLetter.includes(keyword)) {
+                    console.log(`✅ 匹配到关键词: ${keyword}`);
+                    return reply;
                 }
-                
-                const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + DEEPSEEK_API_KEY
-                    },
-                    body: JSON.stringify({
-                        model: 'deepseek-chat',
-                        messages: [{ role: 'user', content: prompt }],
-                        max_tokens: 200,
-                        temperature: 0.8
-                    })
-                });
-
-                if (!response.ok) {
-                    console.error('API error:', response.status);
-                    return null;
-                }
-
-                const data = await response.json();
-                return data.choices[0].message.content.trim();
-            } catch (error) {
-                console.error('API error:', error);
-                return null;
             }
+
+            console.log('💬 使用通用回复');
+            return warmReplies[Math.floor(Math.random() * warmReplies.length)];
         }
 
         function sendLetter() {
@@ -4807,7 +4938,8 @@
                 alert('写点什么吧～');
                 return;
             }
-            
+            if (checkSafetyInput(text)) { showSafetyAlert(); return; }
+
             const scheduleCheckbox = document.getElementById('scheduleCheckbox');
             const isScheduled = scheduleCheckbox && scheduleCheckbox.checked;
             
@@ -4841,12 +4973,6 @@
                     </div>
                 `;
             } else {
-                gameData.pendingLetter = {
-                    content: text,
-                    sentAt: new Date().toISOString(),
-                    reply: null
-                };
-                
                 gameData.draftLetter = null;
                 saveData();
 
@@ -4854,25 +4980,77 @@
                     <div class="letter-content">
                         <div style="font-size:60px;">📮</div>
                         <div style="font-size:16px;color:#5d4e37;margin-top:20px;text-align:center;line-height:1.6;">
-                            信已寄出！绒毛正在认真读信，<br>5分钟后可以来收信哦～
+                            信已寄出！绒毛正在认真读信，<br>请<span style="color:#ff69b4;font-weight:bold;">5分钟后</span>再来收信哦～
                         </div>
-                        <button class="sign-option" style="margin-top:30px;width:100%;" onclick="document.getElementById('letterModal').remove(); updateMailButton();">好的</button>
+                        <button class="sign-option" style="margin-top:30px;width:100%;" onclick="document.getElementById('letterModal').remove(); updateMailButton(); showReplyCountdown();">好的</button>
                     </div>
                 `;
 
-                setTimeout(function() {
-                    generateReplyForPending();
-                }, 5 * 60 * 1000);
+                gameData.pendingLetter = {
+                    content: text,
+                    sentAt: new Date().toISOString(),
+                    reply: null,
+                    replyReadyAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+                };
+                saveData();
+                generateReplyForPending();
             }
         }
 
         async function generateReplyForPending() {
-            if (!gameData.pendingLetter) return;
+            if (!gameData.pendingLetter || gameData.pendingLetter.reply) return;
+
+            const replyReadyAt = new Date(gameData.pendingLetter.replyReadyAt).getTime();
+            const now = Date.now();
+            const waitTime = Math.max(0, replyReadyAt - now);
+
+            if (waitTime > 0) {
+                showReplyCountdown();
+                await new Promise(resolve => setTimeout(resolve, waitTime));
+            }
 
             var aiReply = await generateAIReply(gameData.pendingLetter.content);
             gameData.pendingLetter.reply = aiReply || presetReplies[Math.floor(Math.random() * presetReplies.length)];
+            hideReplyCountdown();
             saveData();
             updateMailButton();
+        }
+
+        function showReplyCountdown() {
+            if (document.getElementById('replyCountdown')) return;
+
+            const pending = gameData.pendingLetter;
+            if (!pending || !pending.replyReadyAt) return;
+
+            const countdown = document.createElement('div');
+            countdown.id = 'replyCountdown';
+            countdown.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#fff8dc,#ffe4c4);padding:10px 20px;text-align:center;font-size:14px;color:#5d4e37;box-shadow:0 2px 10px rgba(0,0,0,0.1);';
+            document.body.appendChild(countdown);
+
+            function updateCountdown() {
+                const replyReadyAt = new Date(pending.replyReadyAt).getTime();
+                const now = Date.now();
+                const remaining = Math.max(0, replyReadyAt - now);
+
+                if (remaining <= 0) {
+                    hideReplyCountdown();
+                    return;
+                }
+
+                const minutes = Math.floor(remaining / 60000);
+                const seconds = Math.floor((remaining % 60000) / 1000);
+                const countdownEl = document.getElementById('replyCountdown');
+                if (countdownEl) {
+                    countdownEl.innerHTML = `📮 绒毛正在读信... 还需等待 <span style="color:#ff69b4;font-weight:bold;">${minutes}分${seconds}秒</span>`;
+                }
+                setTimeout(updateCountdown, 1000);
+            }
+            updateCountdown();
+        }
+
+        function hideReplyCountdown() {
+            const countdown = document.getElementById('replyCountdown');
+            if (countdown) countdown.remove();
         }
 
         function typeWriter(elementId, text, index) {
@@ -5182,8 +5360,9 @@
             overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:500;';
 
             const playCount = gameData.playCount || 0;
-            const unlockedBraveCards = gameData.unlockedBraveCards || [];
+            const unlockedBraveCards = gameData.braveUnlocked || [];
             const hasAllSocialCards = ['sign_first', 'mail_first', 'tree_first', 'star_first', 'crumple_first'].every(c => unlockedBraveCards.includes(c));
+            if (playCount >= 80 && hasAllSocialCards) unlockBraveCard('all_stories');
 
             const hour = new Date().getHours();
             const isLateNight = hour >= 23 || hour < 5;
@@ -5379,6 +5558,12 @@
         }
 
         function openDailySign() {
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
+            if (!gameData.toolsUsed.includes('dailySign')) {
+                gameData.toolsUsed.push('dailySign');
+                saveData();
+                if (gameData.toolsUsed.length >= 5) unlockBraveCard('all_tools');
+            }
             const existing = document.querySelector('.modal-bg');
             if (existing) existing.remove();
             
@@ -5601,6 +5786,12 @@
         let isPomodoroRunning = false;
 
         function openPomodoro() {
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
+            if (!gameData.toolsUsed.includes('pomodoro')) {
+                gameData.toolsUsed.push('pomodoro');
+                saveData();
+                if (gameData.toolsUsed.length >= 5) unlockBraveCard('all_tools');
+            }
             if (pomodoroTimer) clearInterval(pomodoroTimer);
             if (pomodoroBubbleTimer) clearInterval(pomodoroBubbleTimer);
             
@@ -5702,6 +5893,12 @@
         let noiseAudio = null;
 
         function openWhiteNoise() {
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
+            if (!gameData.toolsUsed.includes('whiteNoise')) {
+                gameData.toolsUsed.push('whiteNoise');
+                saveData();
+                if (gameData.toolsUsed.length >= 5) unlockBraveCard('all_tools');
+            }
             if (noiseOscillator) {
                 stopWhiteNoise();
             }
@@ -5821,6 +6018,12 @@
         ];
 
         function openBreathing() {
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
+            if (!gameData.toolsUsed.includes('breathing')) {
+                gameData.toolsUsed.push('breathing');
+                saveData();
+                if (gameData.toolsUsed.length >= 5) unlockBraveCard('all_tools');
+            }
             if (breathingInterval) {
                 clearInterval(breathingInterval);
                 breathingInterval = null;
@@ -5984,6 +6187,12 @@
         }
 
         function openDiary() {
+            if (!gameData.toolsUsed) gameData.toolsUsed = [];
+            if (!gameData.toolsUsed.includes('diary')) {
+                gameData.toolsUsed.push('diary');
+                saveData();
+                if (gameData.toolsUsed.length >= 5) unlockBraveCard('all_tools');
+            }
             closeAllHistoryPopups();
             
             const modal = document.createElement('div');
@@ -6039,12 +6248,14 @@
         function saveDiary() {
             const title = document.getElementById('diaryTitle').value.trim();
             const content = document.getElementById('diaryContent').value.trim();
-            
+
             if (!content && !diaryPhotoData) {
                 alert('请写点什么或添加照片吧~');
                 return;
             }
-            
+
+            if (checkSafetyInput(title) || checkSafetyInput(content)) { showSafetyAlert(); return; }
+
             let entries = JSON.parse(localStorage.getItem('diaryEntries') || '[]');
             entries.push({
                 title: title || '无标题',

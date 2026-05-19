@@ -10,6 +10,21 @@ body {
     overflow: hidden;
     touch-action: pan-y;
 }
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(0,0,0,0.1);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(139, 115, 85, 0.7);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 115, 85, 0.9);
+}
 .page {
     display: none;
     width: 100%;
@@ -26,7 +41,11 @@ body {
 
 /* 页面D - 登录页 */
 #page-login {
-    background: linear-gradient(180deg, #a8d5ba 0%, #fef9f0 50%, #f7d9c4 100%);
+    background-image: url('video.png');
+    background-position: center 100%;
+    background-size: cover;
+    background-repeat: no-repeat;
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -34,9 +53,10 @@ body {
 }
 .login-title {
     font-size: 32px;
-    color: #5d4e37;
-    margin-bottom: 40px;
-    text-shadow: 2px 2px 0 #fff;
+    font-family: 'SimSun', 'STSong', serif;
+    color: #ff8c00;
+    margin-bottom: 20px;
+    text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 10px rgba(255,255,255,0.8);
 }
 .login-fluff {
     width: 120px;
@@ -94,23 +114,23 @@ body {
 }
 .login-input {
     width: 260px;
-    padding: 15px 20px;
+    padding: 12px 20px;
     border: none;
     border-radius: 25px;
     font-size: 16px;
     text-align: center;
-    background: #fff;
+    background: #fff8dc;
     box-shadow: 0 4px 15px rgba(0,0,0,0.08);
     outline: none;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 .login-btn {
-    padding: 14px 50px;
-    background: #a8d5ba;
+    padding: 12px 40px;
+    background: #fff8dc;
     border: none;
     border-radius: 25px;
     font-size: 18px;
-    color: #fff;
+    color: #5d4e37;
     cursor: pointer;
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
     transition: transform 0.15s, box-shadow 0.15s;
@@ -132,12 +152,15 @@ body {
     padding-left: 10px;
     padding-right: 10px;
     background: #f0e0c0;
-    display: flex;
+    display: none;
     justify-content: space-around;
     align-items: center;
     box-shadow: 0 -2px 15px rgba(0,0,0,0.12);
     z-index: 9999;
     border-radius: 25px 25px 0 0;
+}
+.nav-bar.visible {
+    display: flex;
 }
 .nav-item {
     display: flex;
@@ -167,6 +190,9 @@ body {
     padding: 0;
     z-index: 1;
     min-height: 100vh;
+    height: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 .treehouse {
     width: 100vw;
@@ -761,6 +787,10 @@ body {
 #page-mailbox {
     background: url('绒毛信箱背景图.png') center center / cover no-repeat;
     padding-bottom: 80px;
+    height: auto;
+    min-height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 .mailbox-scene {
     width: 100%;
